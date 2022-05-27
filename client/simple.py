@@ -23,10 +23,11 @@ def client_function(context: edge.ClientSourceContext):
 
 # update the order (add a product or remove)
 @app.client_source_member_action(
-    app.in_list("context.member.action", "+", "-")
+    app.in_list("context.member.action", "+", "-"),
+    app.equal("context.command.name", "client")
 )
 def update_order(context: edge.ClientSourceMemberContext):
-    print("Client sent a data for adding products to order")
+    print("Client sent a data for updating products in order list")
     database = mongo_connention.get_db()
     order_collection = database["order"]
     orderItem_collection = database["orderItem"]
@@ -38,9 +39,11 @@ def update_order(context: edge.ClientSourceMemberContext):
     if context.data[0]["action"] == "+":
 
         if selectedProduct["inventory"] == 0:
-            return "This is more than the inventory of this product"
-
-        if order_collection.count_documents({}) == 0 or len(list(order_collection.find(
+            return {
+                "status": "false",
+                "message": "This is more than the inventory of this product"
+            }
+        if len(list(order_collection.find(
                 {"username": username, "is_complete": False}))) == 0:
             create_order = {
                 "username": username,
@@ -48,7 +51,7 @@ def update_order(context: edge.ClientSourceMemberContext):
             }
             order_collection.insert_one(create_order)
         user_order = order_collection.find({"username": username, "is_complete": False})[0]
-        if orderItem_collection.count_documents({}) == 0 or len(list(orderItem_collection.find(
+        if len(list(orderItem_collection.find(
                 {"orderId": user_order["_id"], "productId": selectedProduct["_id"]}))) == 0:
             create_orderItem = {
                 "orderId": user_order["_id"],
@@ -59,34 +62,51 @@ def update_order(context: edge.ClientSourceMemberContext):
         user_orderItem = orderItem_collection.find({"orderId": user_order["_id"], "productId": selectedProduct["_id"]})[
             0]
 
-        new_value = {"$set": {'quantity': user_orderItem["quantity"] + 1}}
+        new_quantity = user_orderItem["quantity"] + 1
+        new_value = {"$set": {'quantity': new_quantity}}
         database.orderItem.update_one(user_orderItem, new_value)
         new_inventory = selectedProduct["inventory"] - 1
         new_value = {"$set": {'inventory': new_inventory}}
         database.product.update_one(selectedProduct, new_value)
-    else:
-        if len(list(order_collection.find({"username": username, "is_complete": False}))) == 0:
-            return "Order not exists for this user"
-        user_order = order_collection.find({"username": username, "is_complete": False})[0]
-        if len(list(
-                orderItem_collection.find({"orderId": user_order["_id"], "productId": selectedProduct["_id"]}))) == 0:
-            return "OrderItem not exists for this user"
-        user_orderItem = orderItem_collection.find({"orderId": user_order["_id"], "productId": selectedProduct["_id"]})[
-            0]
-        if user_orderItem["quantity"] == 1:
-            orderItem_collection.delete_one(user_orderItem)
-        else:
-            new_value = {"$set": {'quantity': user_orderItem["quantity"] - 1}}
-            database.orderItem.update_one(user_orderItem, new_value)
-        new_inventory = selectedProduct["inventory"] + 1
-        new_value = {"$set": {'inventory': new_inventory}}
-        database.product.update_one(selectedProduct, new_value)
-    return True
+
+        return {
+            "status": "true",
+            "message": f"You have {new_quantity} of this product now"
+        }
+
+    if len(list(order_collection.find({"username": username, "is_complete": False}))) == 0:
+        return {
+            "status": "false",
+            "message": "You dont have any order list"
+        }
+    user_order = order_collection.find({"username": username, "is_complete": False})[0]
+    if len(list(
+            orderItem_collection.find({"orderId": user_order["_id"], "productId": selectedProduct["_id"]}))) == 0 \
+            or orderItem_collection.find({"orderId": user_order["_id"], "productId": selectedProduct["_id"]})[0][
+        "quantity"] == 0:
+        return {
+            "status": "false",
+            "message": "You dont have this product in your order list"
+        }
+    user_orderItem = orderItem_collection.find({"orderId": user_order["_id"], "productId": selectedProduct["_id"]})[
+        0]
+
+    new_quantity = user_orderItem["quantity"] - 1
+    new_value = {"$set": {'quantity': new_quantity}}
+    database.orderItem.update_one(user_orderItem, new_value)
+    new_inventory = selectedProduct["inventory"] + 1
+    new_value = {"$set": {'inventory': new_inventory}}
+    database.product.update_one(selectedProduct, new_value)
+    return {
+        "status": "true",
+        "message": f"You have {new_quantity} of this product now"
+    }
 
 
 # checkout the order
 @app.client_source_member_action(
-    app.equal("context.member.action", "checkout")
+    app.equal("context.member.action", "checkout"),
+    app.equal("context.command.name", "client")
 )
 def checkout(context: edge.ClientSourceMemberContext):
     print("Client sent a request for checkout the order")
@@ -95,12 +115,19 @@ def checkout(context: edge.ClientSourceMemberContext):
 
     username = context.data[0]["username"]
     if len(list(order_collection.find({"username": username, "is_complete": False}))) == 0:
-        return 'Order not exists'
+        return {
+            "status": "false",
+            "message": "Order list not exist"
+        }
 
     user_order = order_collection.find({"username": username, "is_complete": False})[0]
     new_value = {"$set": {'is_complete': True}}
     database.order.update_one(user_order, new_value)
-    return True
+
+    return {
+        "status": "true",
+        "message": "Order list checked out"
+    }
 
 
 # run
