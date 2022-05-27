@@ -29,7 +29,6 @@ def admin_function(context: edge.ClientSourceContext):
 def add_product(context: edge.ClientSourceMemberContext):
     print("Admin sent a data for adding products")
     database = mongo_connention.get_db()
-    product_collection = database["product"]
     new_product = {
         "name": context.member["name"],
         "inventory": int(context.member["inventory"]),
@@ -37,7 +36,7 @@ def add_product(context: edge.ClientSourceMemberContext):
         "description": context.member["description"],
         "deleted": 0,
     }
-    product_collection.insert_one(new_product)
+    database.product.insert_one(new_product)
     return {
         "message": "This product added successfully"
     }
@@ -51,15 +50,14 @@ def add_product(context: edge.ClientSourceMemberContext):
 def delete_product(context: edge.ClientSourceMemberContext):
     print("Admin sent a data for deleting a product")
     database = mongo_connention.get_db()
-    product_collection = database["product"]
-    if len(list(product_collection.find({"_id": ObjectId(context.member["id"])}))) == 0:
+    if len(list(database.product.find({"_id": ObjectId(context.member["id"])}))) == 0:
         return {
             "status": "false",
             "message": "This product does not exist"
         }
-    selected_product = product_collection.find({"_id": ObjectId(context.member["id"])})[0]
+    selected_product = database.product.find({"_id": ObjectId(context.member["id"])})[0]
     new_value = {"$set": {'deleted': 1}}
-    product_collection.update_one(selected_product, new_value)
+    database.product.update_one(selected_product, new_value)
     return {
         'message': f'{selected_product["name"]} with id={context.member["id"]} deleted.'
     }
@@ -73,20 +71,19 @@ def delete_product(context: edge.ClientSourceMemberContext):
 def update_product(context: edge.ClientSourceMemberContext):
     print("Admin sent a data for updating a product")
     database = mongo_connention.get_db()
-    product_collection = database["product"]
     product_id = ObjectId(context.member["id"])
-    if len(list(product_collection.find({"_id": ObjectId(context.member["id"])}))) == 0:
+    if len(list(database.product.find({"_id": ObjectId(context.member["id"])}))) == 0:
         return {
             "status": "false",
             "message": "This product does not exist"
         }
-    selected_product = product_collection.find({"_id": product_id})[0]
+    selected_product = database.product.find({"_id": product_id})[0]
     update_type = context.member["type"]  # name/price/inventory/description
     updated_value = context.member["value"]  # new value for the update_type
     if update_type == "price" or update_type == "inventory":
         updated_value = int(updated_value)
     new_value = {"$set": {update_type: updated_value}}
-    product_collection.update_one(selected_product, new_value)
+    database.product.update_one(selected_product, new_value)
     return {
         "message": f"The {update_type} of this product updated."
     }
@@ -100,9 +97,8 @@ def update_product(context: edge.ClientSourceMemberContext):
 def show_products(context: edge.ClientSourceMemberContext):
     print("Admin sent a request for showing all products")
     database = mongo_connention.get_db()
-    product_collection = database["product"]
     list_of_products = []
-    for product in product_collection.find():
+    for product in database.product.find():
         product["_id"] = str(product["_id"])
         list_of_products.append(product)
     return {
