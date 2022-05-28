@@ -1,3 +1,9 @@
+import base64
+import hashlib
+import re
+import uuid
+from string import ascii_letters
+
 from bclib import edge
 from bson import ObjectId
 
@@ -19,6 +25,78 @@ def remove_extraFields(dict):
     return dict
 
 
+# This is a function for check the validation of username
+def validate_username(username):
+    error = None
+    for letter in username:
+        if letter not in ascii_letters and letter != '_' and letter not in '0123456789':
+            error = 'Please use only letters (a-z,A-Z), numbers, or underline for username'
+    database = mongo_connention.get_db()
+    if len(list(database.user.find({"username": username}))) != 0:
+        error = 'This username is already exist'
+    if error:
+        return {
+            "status": False,
+            "error": error
+        }
+    return {
+        "status": True
+    }
+
+
+# This is a function for check the validation of password
+def validate_password(password):
+    error = None
+    if len(password) < 8:
+        error = 'The password is too short. It must be at least 8 characters'
+    for letter in password:
+        if letter not in ascii_letters and letter not in '0123456789':
+            error = 'Please use only letters (a-z,A-Z), numbers for password'
+    if error:
+        return {
+            "status": False,
+            "error": error
+        }
+    return {
+        "status": True
+    }
+
+
+# This is a function for check the validation of phone
+def validate_phone(phone):
+    error = None
+    regex_for_phone = r"^(\+98?)?{?(0?9[0-9]{9,9}}?)$"
+    if not re.search(regex_for_phone, phone):
+        error = "This phone number is not valid !"
+    database = mongo_connention.get_db()
+    if len(list(database.user.find({"username": phone}))) != 0:
+        error = 'This phone number is already exist'
+    if error:
+        return {
+            "status": False,
+            "error": error
+        }
+    return {
+        "status": True
+    }
+
+
+# This is a function for check the validation of email
+def validate_email(email):
+    error = None
+    regex_for_email = r"^[a-zA-Z0-9]+[\._]?[a-zA-Z0-9]+[@]\w+[.]\w{2,3}$"
+    if not re.search(regex_for_email, email):
+        error = "This email is not valid !"
+    if error:
+        return {
+            "status": False,
+            "error": error
+        }
+    return {
+        "status": True
+    }
+
+
 # this function runs when the client sends a request
 @app.client_source_action(
     app.equal("context.command.source", "basiscore"),
@@ -28,7 +106,84 @@ def client_function(context: edge.ClientSourceContext):
     return context.command.member
 
 
-# display all products
+# Register User
+@app.client_source_member_action(
+    app.in_list("context.member.action", "register"),
+    app.equal("context.command.name", "client")
+)
+def register(context: edge.ClientSourceMemberContext):
+    print("Client sent a request for register")
+    database = mongo_connention.get_db()
+    is_valid_username = validate_username(context.member["username"])
+    is_valid_phone = validate_phone(context.member["phone"])
+    is_valid_email = validate_email(context.member["email"])
+    is_valid_password = validate_password(context.member["password"])
+    if not is_valid_username["status"]:
+        return {
+            "status": "false",
+            "message": is_valid_username["error"]
+        }
+    if not is_valid_phone["status"]:
+        return {
+            "status": "false",
+            "message": is_valid_phone["error"]
+        }
+    if not is_valid_email["status"]:
+        return {
+            "status": "false",
+            "message": is_valid_email["error"]
+        }
+    if not is_valid_password["status"]:
+        return {
+            "status": "false",
+            "message": is_valid_password["error"]
+        }
+    salt = base64.urlsafe_b64encode(uuid.uuid4().bytes).hex()
+    hashed_password = hashlib.sha512((context.member["password"] + salt).encode()).hexdigest()
+    user_information = {
+        "username": context.member["username"],
+        "phone": context.member["phone"],
+        "email": context.member["email"],
+        "password": hashed_password,
+        "full_name": context.member.get("full_name"),
+        "deleted": 0
+    }
+    database.user.insert_one(user_information)
+    return {
+        "status": "true",
+        "message": "Registration completed."
+    }
+
+
+# Login User
+@app.client_source_member_action(
+    app.in_list("context.member.action", "login"),
+    app.equal("context.command.name", "client")
+)
+def login_user(context: edge.ClientSourceMemberContext):
+    username_input = context.member["username"]
+    password_input = context.member["password"]
+    print("Client sent a request for login")
+    database = mongo_connention.get_db()
+    user = database.user.find({"username": username_input})
+    if len(list(user)) == 0:
+        return {
+            "status": "false",
+            "message": "Username does not correct"
+        }
+    valid_password = user[0]["password"]
+    generated_password = hashlib.sha512((password_input + login_user[0]["salt"]).encode()).hexdigest()
+    if valid_password != generated_password:
+        return {
+            "status": "false",
+            "message": "Password does not correct"
+        }
+    return {
+        "status": "true"
+    }
+
+
+# Display All Products
 @app.client_source_member_action(
     app.in_list("context.member.action", "show_all"),
     app.equal("context.command.name", "client")
@@ -61,7 +216,7 @@ def show_products(context: edge.ClientSourceMemberContext):
     }
 
 
-# display detail of a product
+# Display Detail Of A Product
 @app.client_source_member_action(
     app.in_list("context.member.action", "show_detail"),
     app.equal("context.command.name", "client")
@@ -76,7 +231,7 @@ def show_details(context: edge.ClientSourceMemberContext):
     }
 
 
-# update the order (add a product or remove)
+# Update The Order (Add A Product Or Remove)
 @app.client_source_member_action(
     app.in_list("context.member.action", "+", "-"),
     app.equal("context.command.name", "client")
@@ -155,7 +310,7 @@ def update_order(context: edge.ClientSourceMemberContext):
     }
 
 
-# checkout the order
+# Checkout The Order
 @app.client_source_member_action(
     app.equal("context.member.action", "checkout"),
     app.equal("context.command.name", "client")
@@ -181,7 +336,7 @@ def checkout(context: edge.ClientSourceMemberContext):
     }
 
 
-# run
+# Run
 app.listening()
 
 '''
