@@ -3,7 +3,7 @@ from bson import ObjectId
 
 from db import mongo_connention
 
-# this is options for connecting to edge
+# This is options for connecting to edge
 options = {
     "server": "localhost:8080",
     "router": "client_source"
@@ -22,24 +22,24 @@ def admin_function(context: edge.ClientSourceContext):
 
 
 # add products
-@app.client_source_member_action(
-    app.equal("context.member.action", "add"),
-    app.equal("context.command.name", "admin")
-)
-def add_product(context: edge.ClientSourceMemberContext):
-    print("Admin sent a data for adding products")
-    database = mongo_connention.get_db()
-    new_product = {
-        "name": context.member["name"],
-        "inventory": int(context.member["inventory"]),
-        "price": int(context.member["price"]),
-        "description": context.member["description"],
-        "deleted": 0,
-    }
-    database.product.insert_one(new_product)
-    return {
-        "message": "This product added successfully"
-    }
+# @app.client_source_member_action(
+#     app.equal("context.member.action", "add"),
+#     app.equal("context.command.name", "admin")
+# )
+# def add_product(context: edge.ClientSourceMemberContext):
+#     print("Admin sent a data for adding products")
+#     database = mongo_connention.get_db()
+#     new_product = {
+#         "name": context.member["name"],
+#         "inventory": int(context.member["inventory"]),
+#         "price": int(context.member["price"]),
+#         "description": context.member["description"],
+#         "deleted": 0,
+#     }
+#     database.product.insert_one(new_product)
+#     return {
+#         "message": "This product added successfully"
+#     }
 
 
 # delete a product
