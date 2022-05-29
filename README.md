@@ -17,5 +17,5 @@
 ```bash
 $ pip3 install -r requirements.txt
 ```
-### Go to admin folder and client folde: 
+#### Go to admin folder and client folder: 
 ##### Run the both simple.py and restful.py and you can send requests now
