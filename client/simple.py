@@ -9,10 +9,10 @@ from bson import ObjectId
 
 from db import mongo_connention
 
-# this is options for connecting to edge
+# This is options for connecting to edge
 options = {
-    "server": "localhost:8080",
-    "router": "client_source"
+    "server": "localhost:8000",
+    "router": "client_source",
 }
 
 app = edge.from_options(options)
@@ -144,8 +144,9 @@ def register(context: edge.ClientSourceMemberContext):
         "username": context.member["username"],
         "phone": context.member["phone"],
         "email": context.member["email"],
+        "salt": salt,
         "password": hashed_password,
-        "full_name": context.member.get("full_name"),
+        "full_name": context.member.get("full_name", ''),
         "deleted": 0
     }
     database.user.insert_one(user_information)
@@ -165,18 +166,18 @@ def login_user(context: edge.ClientSourceMemberContext):
     password_input = context.member["password"]
     print("Client sent a request for login")
     database = mongo_connention.get_db()
-    user = database.user.find({"username": username_input})
+    user = list(database.user.find({"username": username_input}))
     if len(list(user)) == 0:
         return {
             "status": "false",
-            "message": "Username does not correct"
+            "message": "Username is not correct"
         }
     valid_password = user[0]["password"]
-    generated_password = hashlib.sha512((password_input + login_user[0]["salt"]).encode()).hexdigest()
+    generated_password = hashlib.sha512((password_input + user[0]["salt"]).encode()).hexdigest()
     if valid_password != generated_password:
         return {
             "status": "false",
-            "message": "Password does not correct"
+            "message": "Password is not correct"
         }
     return {
         "status": "true"
@@ -192,39 +193,40 @@ def show_products(context: edge.ClientSourceMemberContext):
     print("Client sent a request for showing all products")
     database = mongo_connention.get_db()
     list_of_products = []
-    page = int(context.member.get("page"))  # display 5 product in each page
+    per_page = int(context.member["per_page"])
+    page = int(context.member["page"])
     status = 1
     if context.member.get("asc"):  # -1 => descending ; 1 => ascending
         status = int(context.member["asc"])
     if context.member.get("sort") == "price":
-        for product in database.product.find().sort("price", status):
+        for product in database.product.find({"deleted": 0}).sort("price", status):
             product["_id"] = str(product["_id"])
             list_of_products.append(remove_extraFields(product))
     elif context.member.get("sort") == "inventory":
-        for product in database.product.find().sort("inventory", status):
+        for product in database.product.find({"deleted": 0}).sort("inventory", status):
             product["_id"] = str(product["_id"])
             list_of_products.append(remove_extraFields(product))
     else:
-        for product in database.product.find():
+        for product in database.product.find({"deleted": 0}):
             product["_id"] = str(product["_id"])
             list_of_products.append(remove_extraFields(product))
         if status == -1:
             list_of_products.reverse()
 
     return {
-        f"products:<page:{page}>": list_of_products[(page - 1) * 5: (page * 5)]
+        f"products:<page:{page}>": list_of_products[(page - 1) * per_page: (page * per_page)]
     }
 
 
-# Display Detail Of A Product
+# Display Details Of A Product
 @app.client_source_member_action(
     app.in_list("context.member.action", "show_detail"),
     app.equal("context.command.name", "client")
 )
-def show_details(context: edge.ClientSourceMemberContext):
+def show_details(context: edge.RESTfulContext):
     print("Client sent a request for showing details of a product")
     database = mongo_connention.get_db()
-    selectedProduct = database.product.find({"_id": ObjectId(context.member["id"])})[0]
+    selectedProduct = database.product.find({"_id": ObjectId(context.url_segments.id)})[0]
     selectedProduct["_id"] = str(selectedProduct["_id"])
     return {
         "detail of this product": selectedProduct
