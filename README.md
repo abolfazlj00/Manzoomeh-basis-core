@@ -5,7 +5,7 @@
 
 ##### Clone the repository :
 ```bash
-$ git clone https://github.com/abolfazlj00/Manzoomeh-basis-core.git
+> git clone https://github.com/abolfazlj00/Manzoomeh-basis-core.git
 ```
 ##### Create a virtualenv and activate it:
 ##### on Windows cmd : 
