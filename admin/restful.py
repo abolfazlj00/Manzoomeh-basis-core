@@ -1,6 +1,6 @@
 from bclib import edge
 
-from db import mongo_connention
+from db import mongo_connection
 
 # This is options for connecting to edge
 options = {
@@ -15,7 +15,7 @@ app = edge.from_options(options)
 @app.restful_action()
 def add_product(context: edge.RESTfulContext):
     print("Admin sent a data for adding products")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     information = context.body
     products = []
     for item in information["products"]:

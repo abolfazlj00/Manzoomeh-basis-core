@@ -1,7 +1,7 @@
 from bclib import edge
 from bson import ObjectId
 
-from db import mongo_connention
+from db import mongo_connection
 
 # This is options for connecting to edge
 options = {
@@ -49,7 +49,7 @@ def admin_function(context: edge.ClientSourceContext):
 )
 def delete_product(context: edge.ClientSourceMemberContext):
     print("Admin sent a data for deleting a product")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     if len(list(database.product.find({"_id": ObjectId(context.member["id"])}))) == 0:
         return {
             "status": "false",
@@ -70,7 +70,7 @@ def delete_product(context: edge.ClientSourceMemberContext):
 )
 def update_product(context: edge.ClientSourceMemberContext):
     print("Admin sent a data for updating a product")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     product_id = ObjectId(context.member["id"])
     if len(list(database.product.find({"_id": ObjectId(context.member["id"])}))) == 0:
         return {
@@ -96,7 +96,7 @@ def update_product(context: edge.ClientSourceMemberContext):
 )
 def show_products(context: edge.ClientSourceMemberContext):
     print("Admin sent a request for showing all products")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     list_of_products = []
     for product in database.product.find():
         product["_id"] = str(product["_id"])

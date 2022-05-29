@@ -7,7 +7,7 @@ from string import ascii_letters
 from bclib import edge
 from bson import ObjectId
 
-from db import mongo_connention
+from db import mongo_connection
 
 # This is options for connecting to edge
 options = {
@@ -31,7 +31,7 @@ def validate_username(username):
     for letter in username:
         if letter not in ascii_letters and letter != '_' and letter not in '0123456789':
             error = 'Please use only letters (a-z,A-Z), numbers, or underline for username'
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     if len(list(database.user.find({"username": username}))) != 0:
         error = 'This username is already exist'
     if error:
@@ -68,7 +68,7 @@ def validate_phone(phone):
     regex_for_phone = r"^(\+98?)?{?(0?9[0-9]{9,9}}?)$"
     if not re.search(regex_for_phone, phone):
         error = "This phone number is not valid !"
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     if len(list(database.user.find({"username": phone}))) != 0:
         error = 'This phone number is already exist'
     if error:
@@ -113,7 +113,7 @@ def client_function(context: edge.ClientSourceContext):
 )
 def register(context: edge.ClientSourceMemberContext):
     print("Client sent a request for register")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     is_valid_username = validate_username(context.member["username"])
     is_valid_phone = validate_phone(context.member["phone"])
     is_valid_email = validate_email(context.member["email"])
@@ -165,7 +165,7 @@ def login_user(context: edge.ClientSourceMemberContext):
     username_input = context.member["username"]
     password_input = context.member["password"]
     print("Client sent a request for login")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     user = list(database.user.find({"username": username_input}))
     if len(list(user)) == 0:
         return {
@@ -191,7 +191,7 @@ def login_user(context: edge.ClientSourceMemberContext):
 )
 def show_products(context: edge.ClientSourceMemberContext):
     print("Client sent a request for showing all products")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     list_of_products = []
     per_page = int(context.member["per_page"])
     page = int(context.member["page"])
@@ -225,7 +225,7 @@ def show_products(context: edge.ClientSourceMemberContext):
 )
 def show_details(context: edge.RESTfulContext):
     print("Client sent a request for showing details of a product")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     selectedProduct = database.product.find({"_id": ObjectId(context.url_segments.id)})[0]
     selectedProduct["_id"] = str(selectedProduct["_id"])
     return {
@@ -240,7 +240,7 @@ def show_details(context: edge.RESTfulContext):
 )
 def update_order(context: edge.ClientSourceMemberContext):
     print("Client sent a data for updating products in order list")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
     username = context.member["username"]
     proId = context.member["id"]
     selectedProduct = database.product.find({"_id": ObjectId(proId)})[0]
@@ -319,7 +319,7 @@ def update_order(context: edge.ClientSourceMemberContext):
 )
 def checkout(context: edge.ClientSourceMemberContext):
     print("Client sent a request for checkout the order")
-    database = mongo_connention.get_db()
+    database = mongo_connection.get_db()
 
     username = context.member["username"]
     if len(list(database.order.find({"username": username, "is_complete": False}))) == 0:
