@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("..")
 import base64
 import hashlib
 import re

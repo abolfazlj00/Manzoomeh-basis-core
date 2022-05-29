@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("..")
 from bclib import edge
 
 from db import mongo_connection
